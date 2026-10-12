@@ -1,0 +1,21 @@
+2D Pixel Art Cat Sprites
+=========================
+
+Asset:     "2D Pixel Art Cat Sprites" (Cat Sprite Sheet.png)
+Creator:   Elthen's Pixel Art Shop (Ahmet Sami Avci)
+Source:    https://elthen.itch.io/2d-pixel-art-cat-sprites
+License:   https://www.patreon.com/elthen/posts/licensing-27430241
+
+Terms, as stated by the creator on the asset page:
+
+- Free to use in commercial and non-commercial projects.
+- Must not be redistributed or resold as raw assets.
+- Commercial use must not involve blockchain / NFT / Web3 / play-to-earn
+  projects.
+- Attribution is not required but is appreciated; credit
+  "Elthen's Pixel Art Shop".
+
+Used in the Chain Captain simulator "Cat" screensaver (pixel cat desktop
+pet). Derived frames flatten the source's transparent background onto the
+screensaver background color and add a 2x nearest-neighbour upscale plus
+horizontally mirrored variants.

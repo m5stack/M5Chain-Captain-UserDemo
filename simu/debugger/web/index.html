@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="light" />
+        <title>Chain Captain Debugger</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&amp;display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="/static/styles.css" />
+        <script src="/static/app.js" defer></script>
+    </head>
+    <body>
+        <main class="shell">
+            <header class="topbar">
+                <h1>HAL Debugger</h1>
+                <div class="connection" id="connection" data-state="checking" role="status" aria-live="polite">
+                    <span class="connection-dot"></span>
+                    <span id="connection-label">Checking simulator</span>
+                </div>
+            </header>
+
+            <section class="key-module" aria-labelledby="buttons-heading">
+                <header class="key-module-heading">
+                    <h2 id="buttons-heading">Buttons</h2>
+                </header>
+
+                <div class="device-stage">
+                    <div class="device-face">
+                        <img src="/static/device-front.svg" alt="Chain Captain front view" />
+                        <button class="device-key device-key-q" type="button" data-debugger-button="power" data-keyboard-key="q" aria-label="PWR Home, keyboard Q">
+                            <span aria-hidden="true">Q</span>
+                        </button>
+                        <button class="device-key device-key-e" type="button" data-debugger-button="a" data-keyboard-key="e" aria-label="A OK, keyboard E">
+                            <span aria-hidden="true">E</span>
+                        </button>
+                        <button class="device-key device-key-a" type="button" data-debugger-button="b" data-keyboard-key="a" aria-label="B Previous, keyboard A">
+                            <span aria-hidden="true">A</span>
+                        </button>
+                        <button class="device-key device-key-d" type="button" data-debugger-button="c" data-keyboard-key="d" aria-label="C Next, keyboard D">
+                            <span aria-hidden="true">D</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="imu-module" aria-labelledby="imu-heading">
+                <header class="imu-module-heading">
+                    <h2 id="imu-heading">IMU</h2>
+                </header>
+
+                <div class="imu-control">
+                    <div class="imu-scene" id="imu-scene" role="application" tabindex="0" aria-label="Drag to rotate the device. Arrow keys also adjust its orientation." aria-describedby="imu-readout">
+                        <div class="imu-observer" aria-hidden="true">
+                            <div class="imu-ground"></div>
+                            <div class="imu-model" id="imu-model">
+                                <div class="imu-face imu-face-front"><img src="/static/device-front.svg" alt="" /></div>
+                                <div class="imu-face imu-face-back"></div>
+                                <div class="imu-face imu-face-left"></div>
+                                <div class="imu-face imu-face-right"></div>
+                                <div class="imu-face imu-face-top"></div>
+                                <div class="imu-face imu-face-bottom"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="imu-readout" id="imu-readout">
+                        <span id="imu-orientation">Flat · +Z</span>
+                        <output id="imu-values">X +0.00 · Y +0.00 · Z +1.00 g</output>
+                    </div>
+
+                    <div class="imu-vertical-control">
+                        <div class="control-label">
+                            <label for="imu-vertical">Vertical tilt</label>
+                            <output id="imu-vertical-output" for="imu-vertical">0°</output>
+                        </div>
+                        <input id="imu-vertical" type="range" min="-180" max="180" step="1" value="0" disabled />
+                        <div class="imu-direction-scale" aria-hidden="true">
+                            <span>−180°</span><span>−90°</span><span>0°</span><span>+90°</span><span>+180°</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="chain-module" aria-labelledby="chain-heading">
+                <header class="chain-module-heading">
+                    <h2 id="chain-heading">Chain</h2>
+                </header>
+
+                <div class="chain-control">
+                    <p class="chain-help">Devices are ordered from Captain to the outer end of each Grove port.</p>
+                    <div class="chain-ports">
+                        <article class="chain-port" data-chain-side="left">
+                            <header>
+                                <div><strong>Left port</strong><small>Captain → outer</small></div>
+                                <output id="chain-left-count">0 nodes</output>
+                            </header>
+                            <div class="chain-device-list" id="chain-left-list"></div>
+                            <div class="chain-add-row">
+                                <button type="button" data-chain-add="key">+ Key</button>
+                                <button type="button" data-chain-add="angle">+ Angle</button>
+                                <button type="button" data-chain-add="joystick">+ Joystick</button>
+                                <button type="button" data-chain-add="buzzer">+ Buzzer</button>
+                                <button type="button" data-chain-add="encoder">+ Encoder</button>
+                                <button type="button" data-chain-add="mono">+ Mono</button>
+                                <button type="button" data-chain-add="rgb">+ RGB</button>
+                                <button type="button" data-chain-add="pir">+ PIR</button>
+                                <button type="button" data-chain-add="tof">+ ToF</button>
+                            </div>
+                        </article>
+
+                        <article class="chain-port" data-chain-side="right">
+                            <header>
+                                <div><strong>Right port</strong><small>Captain → outer</small></div>
+                                <output id="chain-right-count">0 nodes</output>
+                            </header>
+                            <div class="chain-device-list" id="chain-right-list"></div>
+                            <div class="chain-add-row">
+                                <button type="button" data-chain-add="key">+ Key</button>
+                                <button type="button" data-chain-add="angle">+ Angle</button>
+                                <button type="button" data-chain-add="joystick">+ Joystick</button>
+                                <button type="button" data-chain-add="buzzer">+ Buzzer</button>
+                                <button type="button" data-chain-add="encoder">+ Encoder</button>
+                                <button type="button" data-chain-add="mono">+ Mono</button>
+                                <button type="button" data-chain-add="rgb">+ RGB</button>
+                                <button type="button" data-chain-add="pir">+ PIR</button>
+                                <button type="button" data-chain-add="tof">+ ToF</button>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <section class="module" aria-labelledby="status-heading">
+                <header class="module-heading">
+                    <h2 id="status-heading">Status</h2>
+                </header>
+
+                <form id="status-form" data-debugger-module="status">
+                    <label class="field">
+                        <span>Wi-Fi signal</span>
+                        <select id="wifi-signal" name="wifi_signal">
+                            <option value="off" selected>Disconnected</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="failed">Connection failed</option>
+                        </select>
+                    </label>
+
+                    <div class="control-block">
+                        <div class="control-label">
+                            <label for="level">Battery level</label>
+                            <output id="level-output" for="level">75%</output>
+                        </div>
+                        <input id="level" name="level" type="range" min="0" max="100" value="75" />
+                        <div class="range-scale"><span>0%</span><span>100%</span></div>
+                    </div>
+
+                    <div class="control-block">
+                        <div class="control-label">
+                            <label for="voltage">Cell voltage</label>
+                            <output id="voltage-output" for="voltage">3.975 V</output>
+                        </div>
+                        <input id="voltage" name="voltage" type="range" min="3000" max="4350" step="5" value="3975" />
+                        <div class="range-scale"><span>3.000 V</span><span>4.350 V</span></div>
+                    </div>
+
+                    <div class="field-grid">
+                        <label class="field">
+                            <span>Power source</span>
+                            <select id="power-source" name="power_source">
+                                <option value="battery">Battery</option>
+                                <option value="type_c" selected>Type-C</option>
+                                <option value="chain">Chain</option>
+                                <option value="unknown">Unknown</option>
+                            </select>
+                        </label>
+
+                        <label class="field">
+                            <span>Input voltage</span>
+                            <span class="number-field">
+                                <input id="input-voltage" name="input_voltage" type="number" min="0" max="30000" step="100" value="5000" />
+                                <small>mV</small>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div class="switch-list">
+                        <label class="switch-row">
+                            <span><strong>Charging</strong><small>Battery is actively charging</small></span>
+                            <input id="charging" name="charging" type="checkbox" checked />
+                            <i aria-hidden="true"></i>
+                        </label>
+                        <label class="switch-row">
+                            <span><strong>Charging enabled</strong><small>Charging hardware path is enabled</small></span>
+                            <input id="charging-enabled" name="charging_enabled" type="checkbox" checked />
+                            <i aria-hidden="true"></i>
+                        </label>
+                    </div>
+                </form>
+            </section>
+        </main>
+    </body>
+</html>

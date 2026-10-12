@@ -1,0 +1,38 @@
+[
+    {
+        "url": "https://github.com/Forairaaaaa/mooncake.git",
+        "path": "dependencies/mooncake",
+        "ref": "v2.3.3"
+    },
+    {
+        "url": "https://github.com/Forairaaaaa/mooncake_log.git",
+        "path": "dependencies/mooncake_log",
+        "ref": "v1.5.0"
+    },
+    {
+        "url": "https://github.com/m5stack/M5GFX.git",
+        "path": "dependencies/M5GFX",
+        "ref": "0.2.28",
+        "patch": "../patches/M5GFX-lvgl-font.patch"
+    },
+    {
+        "url": "https://github.com/Forairaaaaa/smooth_ui_toolkit.git",
+        "path": "dependencies/smooth_ui_toolkit",
+        "ref": "v2.14.0"
+    },
+    {
+        "url": "https://github.com/bblanchon/ArduinoJson.git",
+        "path": "dependencies/ArduinoJson",
+        "ref": "v7.4.3"
+    },
+    {
+        "url": "https://github.com/lvgl/lvgl.git",
+        "path": "dependencies/lvgl",
+        "ref": "v9.5.0"
+    },
+    {
+        "url": "https://github.com/zeromq/libzmq.git",
+        "path": "dependencies/libzmq",
+        "ref": "v4.3.5"
+    }
+]

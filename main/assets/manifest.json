@@ -1,0 +1,331 @@
+{
+    "version": 1,
+    "images": [
+        {
+            "source": "images/boot/chain_captain_logo.svg",
+            "symbol": "image_boot_chain_captain_logo",
+            "format": "GFX_RGB565_SWAPPED",
+            "width": 189,
+            "height": 72
+        },
+        { "source": "images/screensaver/rps/rock.svg", "symbol": "image_rps_rock", "format": "GFX_RGB565_SWAPPED", "width": 18, "height": 18 },
+        { "source": "images/screensaver/rps/scissors.svg", "symbol": "image_rps_scissors", "format": "GFX_RGB565_SWAPPED", "width": 18, "height": 18 },
+        { "source": "images/screensaver/rps/paper.svg", "symbol": "image_rps_paper", "format": "GFX_RGB565_SWAPPED", "width": 18, "height": 18 },
+        {
+            "source": "images/apps/pomodoro_timer.png",
+            "symbol": "image_app_pomodoro_timer",
+            "format": "GFX_RGB565_SWAPPED",
+            "width": 100,
+            "height": 100
+        },
+        {
+            "source": "images/apps/imu_bubble_level.png",
+            "symbol": "image_app_imu_bubble_level",
+            "format": "GFX_RGB565_SWAPPED",
+            "width": 100,
+            "height": 100
+        },
+        {
+            "source": "images/apps/ir_copy.png",
+            "symbol": "image_app_ir_copy",
+            "format": "GFX_RGB565_SWAPPED",
+            "width": 100,
+            "height": 100
+        },
+        {
+            "source": "images/apps/recorder.png",
+            "symbol": "image_app_recorder",
+            "format": "GFX_RGB565_SWAPPED",
+            "width": 100,
+            "height": 100
+        },
+        {
+            "source": "images/apps/chain_iot.png",
+            "symbol": "image_app_chain_iot",
+            "format": "GFX_RGB565_SWAPPED",
+            "width": 100,
+            "height": 100
+        },
+        {
+            "source": "images/apps/settings.png",
+            "symbol": "image_app_settings",
+            "format": "GFX_RGB565_SWAPPED",
+            "width": 100,
+            "height": 100
+        },
+        { "source": "images/screensaver/frames/clean_left_0.png", "symbol": "image_cat_clean_left_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/clean_left_1.png", "symbol": "image_cat_clean_left_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/clean_left_2.png", "symbol": "image_cat_clean_left_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/clean_left_3.png", "symbol": "image_cat_clean_left_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/clean_right_0.png", "symbol": "image_cat_clean_right_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/clean_right_1.png", "symbol": "image_cat_clean_right_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/clean_right_2.png", "symbol": "image_cat_clean_right_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/clean_right_3.png", "symbol": "image_cat_clean_right_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/idle_left_0.png", "symbol": "image_cat_idle_left_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/idle_left_1.png", "symbol": "image_cat_idle_left_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/idle_left_2.png", "symbol": "image_cat_idle_left_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/idle_left_3.png", "symbol": "image_cat_idle_left_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/idle_right_0.png", "symbol": "image_cat_idle_right_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/idle_right_1.png", "symbol": "image_cat_idle_right_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/idle_right_2.png", "symbol": "image_cat_idle_right_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/idle_right_3.png", "symbol": "image_cat_idle_right_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_left_0.png", "symbol": "image_cat_jump_left_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_left_1.png", "symbol": "image_cat_jump_left_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_left_2.png", "symbol": "image_cat_jump_left_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_left_3.png", "symbol": "image_cat_jump_left_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_left_4.png", "symbol": "image_cat_jump_left_4", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_left_5.png", "symbol": "image_cat_jump_left_5", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_left_6.png", "symbol": "image_cat_jump_left_6", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_right_0.png", "symbol": "image_cat_jump_right_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_right_1.png", "symbol": "image_cat_jump_right_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_right_2.png", "symbol": "image_cat_jump_right_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_right_3.png", "symbol": "image_cat_jump_right_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_right_4.png", "symbol": "image_cat_jump_right_4", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_right_5.png", "symbol": "image_cat_jump_right_5", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/jump_right_6.png", "symbol": "image_cat_jump_right_6", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/paw_left_0.png", "symbol": "image_cat_paw_left_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/paw_left_1.png", "symbol": "image_cat_paw_left_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/paw_left_2.png", "symbol": "image_cat_paw_left_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/paw_left_3.png", "symbol": "image_cat_paw_left_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/paw_left_4.png", "symbol": "image_cat_paw_left_4", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/paw_left_5.png", "symbol": "image_cat_paw_left_5", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/paw_right_0.png", "symbol": "image_cat_paw_right_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/paw_right_1.png", "symbol": "image_cat_paw_right_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/paw_right_2.png", "symbol": "image_cat_paw_right_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/paw_right_3.png", "symbol": "image_cat_paw_right_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/paw_right_4.png", "symbol": "image_cat_paw_right_4", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/paw_right_5.png", "symbol": "image_cat_paw_right_5", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_left_0.png", "symbol": "image_cat_run_left_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_left_1.png", "symbol": "image_cat_run_left_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_left_2.png", "symbol": "image_cat_run_left_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_left_3.png", "symbol": "image_cat_run_left_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_left_4.png", "symbol": "image_cat_run_left_4", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_left_5.png", "symbol": "image_cat_run_left_5", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_left_6.png", "symbol": "image_cat_run_left_6", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_left_7.png", "symbol": "image_cat_run_left_7", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_right_0.png", "symbol": "image_cat_run_right_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_right_1.png", "symbol": "image_cat_run_right_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_right_2.png", "symbol": "image_cat_run_right_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_right_3.png", "symbol": "image_cat_run_right_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_right_4.png", "symbol": "image_cat_run_right_4", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_right_5.png", "symbol": "image_cat_run_right_5", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_right_6.png", "symbol": "image_cat_run_right_6", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/run_right_7.png", "symbol": "image_cat_run_right_7", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/sleep_0.png", "symbol": "image_cat_sleep_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/sleep_1.png", "symbol": "image_cat_sleep_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/sleep_2.png", "symbol": "image_cat_sleep_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/sleep_3.png", "symbol": "image_cat_sleep_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_left_0.png", "symbol": "image_cat_walk_left_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_left_1.png", "symbol": "image_cat_walk_left_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_left_2.png", "symbol": "image_cat_walk_left_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_left_3.png", "symbol": "image_cat_walk_left_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_left_4.png", "symbol": "image_cat_walk_left_4", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_left_5.png", "symbol": "image_cat_walk_left_5", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_left_6.png", "symbol": "image_cat_walk_left_6", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_left_7.png", "symbol": "image_cat_walk_left_7", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_right_0.png", "symbol": "image_cat_walk_right_0", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_right_1.png", "symbol": "image_cat_walk_right_1", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_right_2.png", "symbol": "image_cat_walk_right_2", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_right_3.png", "symbol": "image_cat_walk_right_3", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_right_4.png", "symbol": "image_cat_walk_right_4", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_right_5.png", "symbol": "image_cat_walk_right_5", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_right_6.png", "symbol": "image_cat_walk_right_6", "format": "GFX_RGB565_SWAPPED" },
+        { "source": "images/screensaver/frames/walk_right_7.png", "symbol": "image_cat_walk_right_7", "format": "GFX_RGB565_SWAPPED" },
+        {
+            "source": "images/status/no_sound.svg",
+            "symbol": "image_status_no_sound",
+            "format": "LVGL_A8",
+            "width": 20,
+            "height": 20
+        },
+        {
+            "source": "images/status/volume_down.svg",
+            "symbol": "image_status_volume_down",
+            "format": "LVGL_A8",
+            "width": 20,
+            "height": 20
+        },
+        {
+            "source": "images/status/volume_up.svg",
+            "symbol": "image_status_volume_up",
+            "format": "LVGL_A8",
+            "width": 20,
+            "height": 20
+        },
+        {
+            "source": "images/status/wifi_off.svg",
+            "symbol": "image_status_wifi_off",
+            "format": "LVGL_A8",
+            "width": 18,
+            "height": 18
+        },
+        {
+            "source": "images/status/wifi_low.svg",
+            "symbol": "image_status_wifi_low",
+            "format": "LVGL_A8",
+            "width": 18,
+            "height": 18
+        },
+        {
+            "source": "images/status/wifi_medium.svg",
+            "symbol": "image_status_wifi_medium",
+            "format": "LVGL_A8",
+            "width": 18,
+            "height": 18
+        },
+        {
+            "source": "images/status/wifi_high.svg",
+            "symbol": "image_status_wifi_high",
+            "format": "LVGL_A8",
+            "width": 18,
+            "height": 18
+        },
+        {
+            "source": "images/status/wifi_failed.svg",
+            "symbol": "image_status_wifi_failed",
+            "format": "LVGL_A8",
+            "width": 18,
+            "height": 18
+        },
+        {
+            "source": "images/status/battery_6_bar.svg",
+            "symbol": "image_status_battery_6_bar",
+            "format": "LVGL_A8",
+            "width": 24,
+            "height": 24
+        },
+        {
+            "source": "images/status/battery_outline.svg",
+            "symbol": "image_status_battery_outline",
+            "format": "LVGL_A8",
+            "width": 24,
+            "height": 24
+        },
+        {
+            "source": "images/status/battery_lightning.svg",
+            "symbol": "image_status_battery_lightning",
+            "format": "LVGL_A8",
+            "width": 12,
+            "height": 12
+        },
+        {
+            "source": "images/status/hourglass_bottom.svg",
+            "symbol": "image_status_hourglass_bottom",
+            "format": "LVGL_A8",
+            "width": 64,
+            "height": 64
+        },
+        {
+            "source": "images/chain_iot/change_history_fill.svg",
+            "symbol": "image_chain_iot_change_history_fill",
+            "format": "LVGL_A8",
+            "width": 18,
+            "height": 18
+        }
+    ],
+    "fonts": [
+        {
+            "source": "fonts/NotoSans/NotoSans-Bold.ttf",
+            "symbol": "font_noto_sans_bold_14",
+            "size": 14,
+            "bpp": 4,
+            "ranges": [
+                "0x20",
+                "0x2D",
+                "0x30-0x3A",
+                "0x41",
+                "0x4D",
+                "0x50"
+            ],
+            "args": [
+                "--no-compress"
+            ]
+        },
+        {
+            "source": "fonts/NotoSans/NotoSans-SemiBold.ttf",
+            "symbol": "font_noto_sans_semibold_14",
+            "size": 14,
+            "bpp": 4,
+            "ranges": [
+                "0x20-0x7E"
+            ],
+            "args": [
+                "--no-compress"
+            ]
+        },
+        {
+            "source": "fonts/NotoSans/NotoSans-SemiBold.ttf",
+            "symbol": "font_noto_sans_semibold_16",
+            "size": 16,
+            "bpp": 4,
+            "ranges": [
+                "0x20-0x7E"
+            ],
+            "args": [
+                "--no-compress"
+            ]
+        },
+        {
+            "source": "fonts/NotoSans/NotoSans-SemiBold.ttf",
+            "symbol": "font_noto_sans_semibold_20",
+            "size": 20,
+            "bpp": 4,
+            "ranges": [
+                "0x20-0x7E"
+            ],
+            "args": [
+                "--no-compress"
+            ]
+        },
+        {
+            "source": "fonts/NotoSans/NotoSans-SemiBold.ttf",
+            "symbol": "font_noto_sans_semibold_24",
+            "size": 24,
+            "bpp": 4,
+            "ranges": [
+                "0x20-0x7E"
+            ],
+            "args": [
+                "--no-compress"
+            ]
+        },
+        {
+            "source": "fonts/NotoSans/NotoSans-Medium.ttf",
+            "symbol": "font_noto_sans_medium_24",
+            "size": 24,
+            "bpp": 4,
+            "ranges": [
+                "0x20-0x7E"
+            ],
+            "args": [
+                "--no-compress"
+            ]
+        },
+        {
+            "source": "fonts/NotoSans/NotoSans-SemiBold.ttf",
+            "symbol": "font_noto_sans_semibold_32",
+            "size": 32,
+            "bpp": 4,
+            "ranges": [
+                "0x20-0x7E"
+            ],
+            "args": [
+                "--no-compress"
+            ]
+        },
+        {
+            "source": "fonts/NotoSans/NotoSans-SemiBold.ttf",
+            "symbol": "font_noto_sans_semibold_64",
+            "size": 64,
+            "bpp": 4,
+            "ranges": [
+                "0x2D",
+                "0x30-0x3A",
+                "0xB0"
+            ],
+            "args": [
+                "--no-compress"
+            ]
+        }
+    ]
+}

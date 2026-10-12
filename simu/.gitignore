@@ -1,0 +1,6 @@
+build/
+dependencies/
+.venv/
+__pycache__/
+.chain-captain-storage/
+*.py[cod]

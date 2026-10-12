@@ -1,0 +1,981 @@
+diff --git a/dns_server.cc b/dns_server.cc
+index e79098b..6c77844 100644
+--- a/dns_server.cc
++++ b/dns_server.cc
+@@ -6,10 +6,15 @@
+ #define TAG "DnsServer"
+ 
+ DnsServer::DnsServer() {
++    stopped_semaphore_ = xSemaphoreCreateBinary();
+ }
+ 
+ DnsServer::~DnsServer() {
+     Stop();
++    if (stopped_semaphore_ != nullptr) {
++        vSemaphoreDelete(stopped_semaphore_);
++        stopped_semaphore_ = nullptr;
++    }
+ }
+ 
+ void DnsServer::Start(esp_ip4_addr_t gateway) {
+@@ -19,6 +24,11 @@ void DnsServer::Start(esp_ip4_addr_t gateway) {
+     }
+ 
+     ESP_LOGI(TAG, "Starting DNS server");
++    if (stopped_semaphore_ == nullptr) {
++        ESP_LOGE(TAG, "Failed to create stop semaphore");
++        return;
++    }
++    xSemaphoreTake(stopped_semaphore_, 0);
+     gateway_ = gateway;
+ 
+     fd_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+@@ -41,11 +51,21 @@ void DnsServer::Start(esp_ip4_addr_t gateway) {
+     }
+ 
+     running_ = true;
+-    xTaskCreate([](void* arg) {
+-        DnsServer* dns_server = static_cast<DnsServer*>(arg);
+-        dns_server->Run();
+-        vTaskDelete(NULL);
+-    }, "DnsServerTask", 4096, this, 5, &task_handle_);
++    BaseType_t task_created = xTaskCreate(
++        [](void *arg) {
++            DnsServer *dns_server = static_cast<DnsServer *>(arg);
++            dns_server->Run();
++            xSemaphoreGive(dns_server->stopped_semaphore_);
++            vTaskDelete(NULL);
++        },
++        "DnsServerTask", 4096, this, 5, &task_handle_);
++    if (task_created != pdPASS) {
++        ESP_LOGE(TAG, "Failed to create DNS server task");
++        running_ = false;
++        close(fd_);
++        fd_          = -1;
++        task_handle_ = nullptr;
++    }
+ }
+ 
+ void DnsServer::Stop() {
+@@ -63,20 +83,21 @@ void DnsServer::Stop() {
+         fd_ = -1;
+     }
+ 
+-    // Wait for task to finish
++    // Wait until Run() has stopped using this object.
+     if (task_handle_ != nullptr) {
+-        // Give the task some time to exit gracefully
+-        vTaskDelay(pdMS_TO_TICKS(100));
++        xSemaphoreTake(stopped_semaphore_, portMAX_DELAY);
+         task_handle_ = nullptr;
+     }
+ }
+ 
+ void DnsServer::Run() {
+     char buffer[512];
++    constexpr size_t answer_size = 16;
+     while (running_) {
+         struct sockaddr_in client_addr;
+         socklen_t client_addr_len = sizeof(client_addr);
+-        int len = recvfrom(fd_, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &client_addr_len);
++        int len =
++            recvfrom(fd_, buffer, sizeof(buffer) - answer_size, 0, (struct sockaddr *)&client_addr, &client_addr_len);
+         if (len < 0) {
+             if (!running_) {
+                 // Socket was closed during Stop(), exit gracefully
+@@ -89,6 +110,10 @@ void DnsServer::Run() {
+         if (!running_) {
+             break;
+         }
++        if (len < 12) {
++            ESP_LOGW(TAG, "Ignoring invalid DNS request");
++            continue;
++        }
+ 
+         // Simple DNS response: point all queries to 192.168.4.1
+         buffer[2] |= 0x80;  // Set response flag
+@@ -106,7 +131,5 @@ void DnsServer::Run() {
+ 
+         sendto(fd_, buffer, len, 0, (struct sockaddr *)&client_addr, client_addr_len);
+     }
+-
+-    task_handle_ = nullptr;
+     ESP_LOGI(TAG, "DNS server task exiting");
+ }
+diff --git a/include/dns_server.h b/include/dns_server.h
+index db65307..e5dd2e1 100644
+--- a/include/dns_server.h
++++ b/include/dns_server.h
+@@ -5,6 +5,7 @@
+ #include <atomic>
+ #include <esp_netif_ip_addr.h>
+ #include <freertos/FreeRTOS.h>
++#include <freertos/semphr.h>
+ #include <freertos/task.h>
+ 
+ class DnsServer {
+@@ -21,6 +22,7 @@ private:
+     esp_ip4_addr_t gateway_;
+     std::atomic<bool> running_{false};
+     TaskHandle_t task_handle_ = nullptr;
++    SemaphoreHandle_t stopped_semaphore_ = nullptr;
+     void Run();
+ };
+ 
+diff --git a/include/wifi_configuration_ap.h b/include/wifi_configuration_ap.h
+index 1ed2301..a608229 100644
+--- a/include/wifi_configuration_ap.h
++++ b/include/wifi_configuration_ap.h
+@@ -6,6 +6,7 @@
+ #include <mutex>
+ #include <memory>
+ #include <functional>
++#include <cstdint>
+ 
+ #include <esp_http_server.h>
+ #include <esp_event.h>
+@@ -55,8 +56,12 @@ public:
+     void OnExitRequested(std::function<void()> callback);
+ 
+ private:
++    struct ExitRequestState;
++    struct ExitRequestTaskContext;
++
+     std::mutex mutex_;
+     std::unique_ptr<DnsServer> dns_server_;
++    std::shared_ptr<ExitRequestState> exit_request_state_;
+     httpd_handle_t server_ = NULL;
+     EventGroupHandle_t event_group_;
+     std::string ssid_prefix_;
+@@ -76,11 +81,14 @@ private:
+     bool show_ota_config_ = false;
+     bool show_sleep_config_ = false;
+ 
+-    // Callbacks
+-    std::function<void()> on_exit_requested_;
+-
+     void StartAccessPoint();
+     void StartWebServer();
++    void BeginExitRequestSession();
++    void CancelExitRequests(bool wait_for_tasks);
++    void ScheduleExitRequest(std::uint32_t delay_ms);
++    static void ExitRequestTask(void* arg);
++
++    friend class WifiManager;
+ 
+     // Event handlers
+     static void WifiEventHandler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
+diff --git a/include/wifi_manager.h b/include/wifi_manager.h
+index e1d6bb2..37c07fb 100644
+--- a/include/wifi_manager.h
++++ b/include/wifi_manager.h
+@@ -26,6 +26,7 @@
+ #include <memory>
+ #include <functional>
+ #include <mutex>
++#include <cstdint>
+ 
+ #include "wifi_station.h"
+ 
+@@ -34,12 +35,12 @@ class WifiConfigurationAp;
+ 
+ // WiFi events
+ enum class WifiEvent {
+-    Scanning,          // Started scanning for networks
+-    Connecting,        // Connecting to network (call GetSsid() for target)
+-    Connected,         // Successfully connected
+-    Disconnected,      // Disconnected from network
+-    ConfigModeEnter,   // Entered config AP mode
+-    ConfigModeExit,    // Exited config AP mode
++    Scanning,         // Started scanning for networks
++    Connecting,       // Connecting to network (call GetSsid() for target)
++    Connected,        // Successfully connected
++    Disconnected,     // Disconnected from network
++    ConfigModeEnter,  // Entered config AP mode (data is the session generation)
++    ConfigModeExit,   // Exited config AP mode (data is the session generation)
+ };
+ 
+ // Configuration
+@@ -116,15 +117,19 @@ private:
+     ~WifiManager();
+ 
+     void NotifyEvent(WifiEvent event, const std::string& data = "");
++    void StopConfigApForSession(std::uint64_t session_generation);
++    void StopConfigApImpl(std::uint64_t session_generation, bool require_session_match);
+ 
+     WifiManagerConfig config_;
+     std::unique_ptr<WifiStation> station_;
+     std::unique_ptr<WifiConfigurationAp> config_ap_;
+ 
++    std::recursive_mutex operation_mutex_;
+     mutable std::mutex mutex_;
+-    bool initialized_ = false;
+-    bool station_active_ = false;
+-    bool config_mode_active_ = false;
++    bool initialized_                        = false;
++    bool station_active_                     = false;
++    bool config_mode_active_                 = false;
++    std::uint64_t config_session_generation_ = 0;
+ 
+     std::function<void(WifiEvent, const std::string&)> event_callback_;
+     mutable std::string mac_address_;
+diff --git a/include/wifi_station.h b/include/wifi_station.h
+index 0aed7b1..d4abb5c 100644
+--- a/include/wifi_station.h
++++ b/include/wifi_station.h
+@@ -4,6 +4,7 @@
+ #include <string>
+ #include <vector>
+ #include <functional>
++#include <mutex>
+ 
+ #include <esp_event.h>
+ #include <esp_timer.h>
+@@ -46,8 +47,8 @@ public:
+     bool IsConnected();
+     bool WaitForConnected(int timeout_ms = 10000);
+     int8_t GetRssi();
+-    std::string GetSsid() const { return ssid_; }
+-    std::string GetIpAddress() const { return ip_address_; }
++    std::string GetSsid() const;
++    std::string GetIpAddress() const;
+     uint8_t GetChannel();
+     void SetPowerSaveLevel(WifiPowerSaveLevel level);
+ 
+@@ -73,6 +74,7 @@ private:
+     std::string ssid_;
+     std::string password_;
+     std::string ip_address_;
++    mutable std::mutex connection_info_mutex_;
+     std::string hostname_;
+     int8_t max_tx_power_;
+     uint8_t remember_bssid_;
+diff --git a/wifi_configuration_ap.cc b/wifi_configuration_ap.cc
+index 0747554..1007084 100644
+--- a/wifi_configuration_ap.cc
++++ b/wifi_configuration_ap.cc
+@@ -1,8 +1,11 @@
+ #include "wifi_configuration_ap.h"
++#include <algorithm>
+ #include <cstdio>
+ #include <memory>
++#include <new>
+ #include <freertos/FreeRTOS.h>
+ #include <freertos/event_groups.h>
++#include <freertos/task.h>
+ #include <esp_err.h>
+ #include <esp_event.h>
+ #include <esp_wifi.h>
+@@ -24,12 +27,50 @@
+ #define WIFI_CONNECTED_BIT BIT0
+ #define WIFI_FAIL_BIT      BIT1
+ 
++namespace {
++
++constexpr EventBits_t EXIT_REQUEST_TASKS_IDLE_BIT = BIT0;
++
++}  // namespace
++
++struct WifiConfigurationAp::ExitRequestState {
++    ExitRequestState()
++    {
++        tasks_idle = xEventGroupCreate();
++        if (tasks_idle != nullptr) {
++            xEventGroupSetBits(tasks_idle, EXIT_REQUEST_TASKS_IDLE_BIT);
++        }
++    }
++
++    ~ExitRequestState()
++    {
++        if (tasks_idle != nullptr) {
++            vEventGroupDelete(tasks_idle);
++        }
++    }
++
++    std::mutex mutex;
++    std::function<void()> callback;
++    std::vector<TaskHandle_t> tasks;
++    EventGroupHandle_t tasks_idle    = nullptr;
++    std::uint64_t generation         = 0;
++    std::uint64_t pending_generation = 0;
++    bool active                      = false;
++};
++
++struct WifiConfigurationAp::ExitRequestTaskContext {
++    std::shared_ptr<ExitRequestState> state;
++    std::uint64_t generation;
++    std::uint32_t delay_ms;
++};
++
+ extern const char index_html_start[] asm("_binary_wifi_configuration_html_start");
+ extern const char done_html_start[] asm("_binary_wifi_configuration_done_html_start");
+ 
+ WifiConfigurationAp::WifiConfigurationAp()
+ {
+     event_group_ = xEventGroupCreate();
++    exit_request_state_ = std::make_shared<ExitRequestState>();
+     language_ = "zh-CN";
+     sleep_mode_ = false;
+     instance_any_id_ = nullptr;
+@@ -47,6 +88,8 @@ std::vector<wifi_ap_record_t> WifiConfigurationAp::GetAccessPoints()
+ WifiConfigurationAp::~WifiConfigurationAp()
+ {
+     Stop();
++    CancelExitRequests(true);
++    exit_request_state_.reset();
+     if (event_group_) {
+         vEventGroupDelete(event_group_);
+         event_group_ = nullptr;
+@@ -75,6 +118,8 @@ void WifiConfigurationAp::SetSsidPrefix(const std::string &ssid_prefix)
+ 
+ void WifiConfigurationAp::Start()
+ {
++    BeginExitRequestSession();
++
+     // Register event handlers
+     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
+                                                         ESP_EVENT_ANY_ID,
+@@ -454,17 +499,7 @@ void WifiConfigurationAp::StartWebServer()
+             
+             // 延迟调用回调，确保HTTP响应完全发送
+             ESP_LOGI(TAG, "Exiting config mode...");
+-            xTaskCreate([](void *ctx) {
+-                // 等待200ms确保HTTP响应完全发送
+-                vTaskDelay(pdMS_TO_TICKS(200));
+-                
+-                auto* self = static_cast<WifiConfigurationAp*>(ctx);
+-                // 通知回调退出配网模式
+-                if (self->on_exit_requested_) {
+-                    self->on_exit_requested_();
+-                }
+-                vTaskDelete(NULL);
+-            }, "exit_config_task", 4096, this_, 5, NULL);
++            this_->ScheduleExitRequest(200);
+             
+             return ESP_OK;
+         },
+@@ -736,8 +771,8 @@ bool WifiConfigurationAp::ConnectToWifi(const std::string &ssid, const std::stri
+ 
+         wifi_config_t wifi_config;
+         bzero(&wifi_config, sizeof(wifi_config));
+-        strlcpy((char *)wifi_config.sta.ssid, ssid.c_str(), 32);
+-        strlcpy((char *)wifi_config.sta.password, password.c_str(), 64);
++        memcpy(wifi_config.sta.ssid, ssid.data(), ssid.size());
++        memcpy(wifi_config.sta.password, password.data(), password.size());
+         wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+         wifi_config.sta.failure_retry_cnt = 1;
+ 
+@@ -809,7 +844,148 @@ void WifiConfigurationAp::Save(const std::string &ssid, const std::string &passw
+ 
+ void WifiConfigurationAp::OnExitRequested(std::function<void()> callback)
+ {
+-    on_exit_requested_ = callback;
++    auto state = exit_request_state_;
++    if (!state) {
++        return;
++    }
++
++    std::lock_guard<std::mutex> lock(state->mutex);
++    state->callback = std::move(callback);
++}
++
++void WifiConfigurationAp::BeginExitRequestSession()
++{
++    CancelExitRequests(false);
++
++    auto state = exit_request_state_;
++    if (!state) {
++        return;
++    }
++
++    std::lock_guard<std::mutex> lock(state->mutex);
++    ++state->generation;
++    state->active = true;
++}
++
++void WifiConfigurationAp::CancelExitRequests(bool wait_for_tasks)
++{
++    auto state = exit_request_state_;
++    if (!state) {
++        return;
++    }
++
++    const TaskHandle_t current_task = xTaskGetCurrentTaskHandle();
++    bool called_from_exit_task      = false;
++    {
++        std::lock_guard<std::mutex> lock(state->mutex);
++        state->active = false;
++        ++state->generation;
++        state->pending_generation = 0;
++
++        for (TaskHandle_t task : state->tasks) {
++            if (task == current_task) {
++                called_from_exit_task = true;
++            } else {
++                xTaskNotifyGive(task);
++            }
++        }
++    }
++
++    if (!wait_for_tasks || called_from_exit_task) {
++        return;
++    }
++
++    if (state->tasks_idle != nullptr) {
++        xEventGroupWaitBits(state->tasks_idle, EXIT_REQUEST_TASKS_IDLE_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
++        return;
++    }
++
++    for (;;) {
++        {
++            std::lock_guard<std::mutex> lock(state->mutex);
++            if (state->tasks.empty()) {
++                return;
++            }
++        }
++        vTaskDelay(1);
++    }
++}
++
++void WifiConfigurationAp::ScheduleExitRequest(std::uint32_t delay_ms)
++{
++    auto state = exit_request_state_;
++    if (!state) {
++        return;
++    }
++
++    std::lock_guard<std::mutex> lock(state->mutex);
++    if (!state->active || state->pending_generation == state->generation) {
++        return;
++    }
++
++    auto *context = new (std::nothrow) ExitRequestTaskContext{state, state->generation, delay_ms};
++    if (context == nullptr) {
++        ESP_LOGE(TAG, "Failed to allocate exit request task context");
++        return;
++    }
++
++    if (state->tasks_idle != nullptr) {
++        xEventGroupClearBits(state->tasks_idle, EXIT_REQUEST_TASKS_IDLE_BIT);
++    }
++
++    TaskHandle_t task = nullptr;
++    BaseType_t result = xTaskCreate(ExitRequestTask, "exit_config_task", 4096, context, 5, &task);
++    if (result != pdPASS) {
++        ESP_LOGE(TAG, "Failed to create exit request task");
++        delete context;
++        if (state->tasks.empty() && state->tasks_idle != nullptr) {
++            xEventGroupSetBits(state->tasks_idle, EXIT_REQUEST_TASKS_IDLE_BIT);
++        }
++        return;
++    }
++
++    state->tasks.push_back(task);
++    state->pending_generation = state->generation;
++}
++
++void WifiConfigurationAp::ExitRequestTask(void *arg)
++{
++    auto *context                           = static_cast<ExitRequestTaskContext *>(arg);
++    std::shared_ptr<ExitRequestState> state = std::move(context->state);
++    const std::uint64_t generation          = context->generation;
++    const std::uint32_t delay_ms            = context->delay_ms;
++    delete context;
++
++    const bool cancelled = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(delay_ms)) != 0;
++    if (!cancelled) {
++        std::function<void()> callback;
++        {
++            std::lock_guard<std::mutex> lock(state->mutex);
++            if (state->active && state->generation == generation) {
++                state->active             = false;
++                state->pending_generation = 0;
++                callback                  = state->callback;
++            }
++        }
++        if (callback) {
++            callback();
++        }
++    }
++
++    const TaskHandle_t current_task = xTaskGetCurrentTaskHandle();
++    {
++        std::lock_guard<std::mutex> lock(state->mutex);
++        auto task = std::find(state->tasks.begin(), state->tasks.end(), current_task);
++        if (task != state->tasks.end()) {
++            state->tasks.erase(task);
++        }
++        if (state->tasks.empty() && state->tasks_idle != nullptr) {
++            xEventGroupSetBits(state->tasks_idle, EXIT_REQUEST_TASKS_IDLE_BIT);
++        }
++    }
++
++    state.reset();
++    vTaskDelete(nullptr);
+ }
+ 
+ void WifiConfigurationAp::WifiEventHandler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
+@@ -889,15 +1065,8 @@ void WifiConfigurationAp::SmartConfigEventHandler(void *arg, esp_event_base_t ev
+             // 尝试连接WiFi会失败，故不连接
+             self->Save(ssid, password);
+             // 延迟退出配网模式
+-            xTaskCreate([](void *ctx){
+-                ESP_LOGI(TAG, "Exiting config mode in 1 second");
+-                vTaskDelay(pdMS_TO_TICKS(1000));
+-                auto* self = static_cast<WifiConfigurationAp*>(ctx);
+-                if (self->on_exit_requested_) {
+-                    self->on_exit_requested_();
+-                }
+-                vTaskDelete(NULL);
+-            }, "exit_config_task", 4096, self, 5, NULL);
++            ESP_LOGI(TAG, "Exiting config mode in 1 second");
++            self->ScheduleExitRequest(1000);
+             break;
+         }
+         case SC_EVENT_SEND_ACK_DONE:
+@@ -910,6 +1079,8 @@ void WifiConfigurationAp::SmartConfigEventHandler(void *arg, esp_event_base_t ev
+ #endif // !CONFIG_IDF_TARGET_ESP32P4
+ 
+ void WifiConfigurationAp::Stop() {
++    CancelExitRequests(false);
++
+ #if !CONFIG_IDF_TARGET_ESP32P4
+     // 停止SmartConfig服务
+     if (sc_event_instance_) {
+diff --git a/wifi_manager.cc b/wifi_manager.cc
+index a79008a..1f161f1 100644
+--- a/wifi_manager.cc
++++ b/wifi_manager.cc
+@@ -22,20 +22,42 @@ WifiManager& WifiManager::GetInstance() {
+ 
+ WifiManager::WifiManager() = default;
+ 
+-WifiManager::~WifiManager() {
+-    std::lock_guard<std::mutex> lock(mutex_);
+-    if (station_active_ && station_) {
++WifiManager::~WifiManager()
++{
++    if (config_ap_) {
++        config_ap_->CancelExitRequests(true);
++    }
++
++    std::lock_guard<std::recursive_mutex> operation_lock(operation_mutex_);
++    bool stop_station;
++    bool stop_config_ap;
++    bool deinitialize;
++    {
++        std::lock_guard<std::mutex> lock(mutex_);
++        stop_station        = station_active_ && station_;
++        stop_config_ap      = config_mode_active_ && config_ap_;
++        deinitialize        = initialized_;
++        station_active_     = false;
++        config_mode_active_ = false;
++        ++config_session_generation_;
++        initialized_    = false;
++        event_callback_ = nullptr;
++    }
++    if (stop_station) {
+         station_->Stop();
+     }
+-    if (config_mode_active_ && config_ap_) {
++    if (stop_config_ap) {
+         config_ap_->Stop();
+     }
+-    if (initialized_) {
++    config_ap_.reset();
++    station_.reset();
++    if (deinitialize) {
+         esp_wifi_deinit();
+     }
+ }
+ 
+-void WifiManager::NotifyEvent(WifiEvent event, const std::string& data) {
++void WifiManager::NotifyEvent(WifiEvent event, const std::string& data)
++{
+     // Copy callback under lock, invoke without lock to avoid deadlock
+     std::function<void(WifiEvent, const std::string&)> callback;
+     {
+@@ -47,9 +69,11 @@ void WifiManager::NotifyEvent(WifiEvent event, const std::string& data) {
+     }
+ }
+ 
+-bool WifiManager::Initialize(const WifiManagerConfig& config) {
++bool WifiManager::Initialize(const WifiManagerConfig& config)
++{
++    std::lock_guard<std::recursive_mutex> operation_lock(operation_mutex_);
+     std::lock_guard<std::mutex> lock(mutex_);
+-    
++
+     if (initialized_) {
+         ESP_LOGW(TAG, "Already initialized");
+         return true;
+@@ -108,73 +132,85 @@ bool WifiManager::IsInitialized() const {
+ 
+ // ==================== Station Mode ====================
+ 
+-void WifiManager::StartStation() {
+-    std::unique_lock<std::mutex> lock(mutex_);
++void WifiManager::StartStation()
++{
++    std::unique_lock<std::recursive_mutex> operation_lock(operation_mutex_);
++    bool stop_config_ap                             = false;
++    std::uint64_t stopped_config_session_generation = 0;
++    WifiManagerConfig config;
+ 
+-    if (!initialized_) {
+-        ESP_LOGE(TAG, "Not initialized");
+-        return;
+-    }
+-    if (station_active_) {
+-        ESP_LOGW(TAG, "Station already active");
+-        return;
++    {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (!initialized_) {
++            ESP_LOGE(TAG, "Not initialized");
++            return;
++        }
++        if (station_active_) {
++            ESP_LOGW(TAG, "Station already active");
++            return;
++        }
++        stop_config_ap      = config_mode_active_;
++        config_mode_active_ = false;
++        if (stop_config_ap) {
++            stopped_config_session_generation = config_session_generation_;
++            ++config_session_generation_;
++        }
++        config = config_;
+     }
+ 
+-    // Auto-stop config AP if active
+-    if (config_mode_active_) {
++    // Stop handlers without holding mutex_: WiFi event callbacks also call
++    // NotifyEvent(), which takes mutex_.
++    if (stop_config_ap) {
+         ESP_LOGI(TAG, "Stopping config AP before starting station");
+         config_ap_->Stop();
+-        config_mode_active_ = false;
+-        // Notify outside lock
+-        lock.unlock();
+-        NotifyEvent(WifiEvent::ConfigModeExit);
+-        lock.lock();
+     }
+ 
+     ESP_LOGI(TAG, "Starting station");
+ 
+     // Apply configuration
+-    station_->SetScanIntervalRange(config_.station_scan_min_interval_seconds,
+-                                   config_.station_scan_max_interval_seconds);
+-    station_->SetFailureRetryCnt(config_.station_failure_retry_cnt);
+-    station_->SetHostname(config_.station_hostname);
++    station_->SetScanIntervalRange(config.station_scan_min_interval_seconds, config.station_scan_max_interval_seconds);
++    station_->SetFailureRetryCnt(config.station_failure_retry_cnt);
++    station_->SetHostname(config.station_hostname);
+ 
+     // Setup callbacks
+-    station_->OnScanBegin([this]() {
+-        NotifyEvent(WifiEvent::Scanning);
+-    });
+-    station_->OnConnect([this](const std::string& ssid) {
+-        NotifyEvent(WifiEvent::Connecting, ssid);
+-    });
+-    station_->OnConnected([this](const std::string& ssid) {
+-        NotifyEvent(WifiEvent::Connected, ssid);
+-    });
+-    station_->OnDisconnected([this](int reason) {
+-        NotifyEvent(WifiEvent::Disconnected, std::to_string(reason));
+-    });
++    station_->OnScanBegin([this]() { NotifyEvent(WifiEvent::Scanning); });
++    station_->OnConnect([this](const std::string& ssid) { NotifyEvent(WifiEvent::Connecting, ssid); });
++    station_->OnConnected([this](const std::string& ssid) { NotifyEvent(WifiEvent::Connected, ssid); });
++    station_->OnDisconnected([this](int reason) { NotifyEvent(WifiEvent::Disconnected, std::to_string(reason)); });
+ 
+     station_->Start();
+-    station_active_ = true;
++    {
++        std::lock_guard<std::mutex> lock(mutex_);
++        station_active_ = true;
++    }
++
++    if (stop_config_ap) {
++        NotifyEvent(WifiEvent::ConfigModeExit, std::to_string(stopped_config_session_generation));
++    }
+ }
+ 
+-void WifiManager::StopStation() {
+-    std::unique_lock<std::mutex> lock(mutex_);
++void WifiManager::StopStation()
++{
++    std::unique_lock<std::recursive_mutex> operation_lock(operation_mutex_);
+ 
+-    if (!station_active_) {
+-        return;
++    {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (!station_active_) {
++            return;
++        }
++        station_active_ = false;
+     }
+ 
+     ESP_LOGI(TAG, "Stopping station");
+     station_->Stop();
+     ESP_LOGI(TAG, "Station stopped");
+-    station_active_ = false;
+ 
+-    lock.unlock();
++    operation_lock.unlock();
+     NotifyEvent(WifiEvent::Disconnected);
+-    lock.lock();
+ }
+ 
+-bool WifiManager::IsConnected() const {
++bool WifiManager::IsConnected() const
++{
+     std::lock_guard<std::mutex> lock(mutex_);
+     return station_active_ && station_ && station_->IsConnected();
+ }
+@@ -221,63 +257,89 @@ std::string WifiManager::GetMacAddress() const {
+ 
+ // ==================== Config AP Mode ====================
+ 
+-void WifiManager::StartConfigAp() {
+-    std::unique_lock<std::mutex> lock(mutex_);
++void WifiManager::StartConfigAp()
++{
++    std::unique_lock<std::recursive_mutex> operation_lock(operation_mutex_);
++    bool stop_station                = false;
++    std::uint64_t session_generation = 0;
++    WifiManagerConfig config;
+ 
+-    if (!initialized_) {
+-        ESP_LOGE(TAG, "Not initialized");
+-        return;
+-    }
+-    if (config_mode_active_) {
+-        ESP_LOGW(TAG, "Config AP already active");
+-        return;
++    {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (!initialized_) {
++            ESP_LOGE(TAG, "Not initialized");
++            return;
++        }
++        if (config_mode_active_) {
++            ESP_LOGW(TAG, "Config AP already active");
++            return;
++        }
++        stop_station       = station_active_;
++        station_active_    = false;
++        session_generation = ++config_session_generation_;
++        config             = config_;
+     }
+ 
+     // Auto-stop station if active
+-    if (station_active_) {
++    if (stop_station) {
+         ESP_LOGI(TAG, "Stopping station before starting config AP");
+         station_->Stop();
+-        station_active_ = false;
+-        lock.unlock();
+-        NotifyEvent(WifiEvent::Disconnected);
+-        lock.lock();
+     }
+ 
+     ESP_LOGI(TAG, "Starting config AP");
+ 
+-    config_ap_->SetSsidPrefix(config_.ssid_prefix);
+-    config_ap_->SetLanguage(config_.language);
+-    config_ap_->SetShowOtaConfig(config_.show_ota_config);
+-    config_ap_->SetShowSleepConfig(config_.show_sleep_config);
++    config_ap_->SetSsidPrefix(config.ssid_prefix);
++    config_ap_->SetLanguage(config.language);
++    config_ap_->SetShowOtaConfig(config.show_ota_config);
++    config_ap_->SetShowSleepConfig(config.show_sleep_config);
+ 
+     // Web handler calls this when user submits config
+-    config_ap_->OnExitRequested([this]() {
++    config_ap_->OnExitRequested([this, session_generation]() {
+         ESP_LOGI(TAG, "Config exit requested from web");
+-        StopConfigAp();
++        StopConfigApForSession(session_generation);
+     });
+ 
+     config_ap_->Start();
+-    config_mode_active_ = true;
++    {
++        std::lock_guard<std::mutex> lock(mutex_);
++        config_mode_active_ = true;
++    }
+ 
+-    lock.unlock();
+-    NotifyEvent(WifiEvent::ConfigModeEnter);
+-    lock.lock();
++    if (stop_station) {
++        NotifyEvent(WifiEvent::Disconnected);
++    }
++    NotifyEvent(WifiEvent::ConfigModeEnter, std::to_string(session_generation));
++}
++
++void WifiManager::StopConfigAp()
++{
++    StopConfigApImpl(0, false);
++}
++
++void WifiManager::StopConfigApForSession(std::uint64_t session_generation)
++{
++    StopConfigApImpl(session_generation, true);
+ }
+ 
+-void WifiManager::StopConfigAp() {
+-    std::unique_lock<std::mutex> lock(mutex_);
++void WifiManager::StopConfigApImpl(std::uint64_t session_generation, bool require_session_match)
++{
++    std::unique_lock<std::recursive_mutex> operation_lock(operation_mutex_);
++    std::uint64_t stopped_session_generation = 0;
+ 
+-    if (!config_mode_active_) {
+-        return;
++    {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (!config_mode_active_ || (require_session_match && session_generation != config_session_generation_)) {
++            return;
++        }
++        stopped_session_generation = config_session_generation_;
++        config_mode_active_        = false;
++        ++config_session_generation_;
+     }
+ 
+     ESP_LOGI(TAG, "Stopping config AP");
+     config_ap_->Stop();
+-    config_mode_active_ = false;
+ 
+-    lock.unlock();
+-    NotifyEvent(WifiEvent::ConfigModeExit);
+-    lock.lock();
++    NotifyEvent(WifiEvent::ConfigModeExit, std::to_string(stopped_session_generation));
+ }
+ 
+ bool WifiManager::IsConfigMode() const {
+@@ -299,10 +361,14 @@ std::string WifiManager::GetApWebUrl() const {
+ 
+ // ==================== Power ====================
+ 
+-void WifiManager::SetPowerSaveLevel(WifiPowerSaveLevel level) {
+-    std::lock_guard<std::mutex> lock(mutex_);
+-    if (!station_active_ || !station_) {
+-        return;
++void WifiManager::SetPowerSaveLevel(WifiPowerSaveLevel level)
++{
++    std::lock_guard<std::recursive_mutex> operation_lock(operation_mutex_);
++    {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (!station_active_ || !station_) {
++            return;
++        }
+     }
+     station_->SetPowerSaveLevel(level);
+ }
+diff --git a/wifi_station.cc b/wifi_station.cc
+index 0d26947..a844b76 100644
+--- a/wifi_station.cc
++++ b/wifi_station.cc
+@@ -87,6 +87,16 @@ void WifiStation::Stop() {
+     // Reset was_connected_ flag to prevent stale state from affecting subsequent sessions
+     was_connected_ = false;
+ 
++    connect_queue_.clear();
++    reconnect_count_                    = 0;
++    scan_current_interval_microseconds_ = scan_min_interval_microseconds_;
++    {
++        std::lock_guard<std::mutex> lock(connection_info_mutex_);
++        ssid_.clear();
++        password_.clear();
++        ip_address_.clear();
++    }
++
+     // Clear connected bit
+     xEventGroupClearBits(event_group_, WIFI_EVENT_CONNECTED);
+     
+@@ -173,6 +183,18 @@ bool WifiStation::WaitForConnected(int timeout_ms) {
+     return (bits & WIFI_EVENT_CONNECTED) != 0;
+ }
+ 
++std::string WifiStation::GetSsid() const
++{
++    std::lock_guard<std::mutex> lock(connection_info_mutex_);
++    return ssid_;
++}
++
++std::string WifiStation::GetIpAddress() const
++{
++    std::lock_guard<std::mutex> lock(connection_info_mutex_);
++    return ip_address_;
++}
++
+ void WifiStation::HandleScanResult() {
+     uint16_t ap_num = 0;
+     esp_wifi_scan_get_ap_num(&ap_num);
+@@ -222,17 +244,22 @@ void WifiStation::HandleScanResult() {
+ void WifiStation::StartConnect() {
+     auto ap_record = connect_queue_.front();
+     connect_queue_.erase(connect_queue_.begin());
+-    ssid_ = ap_record.ssid;
+-    password_ = ap_record.password;
++    {
++        std::lock_guard<std::mutex> lock(connection_info_mutex_);
++        ssid_     = ap_record.ssid;
++        password_ = ap_record.password;
++        ip_address_.clear();
++    }
+ 
+     if (on_connect_) {
+-        on_connect_(ssid_);
++        on_connect_(ap_record.ssid);
+     }
+ 
+     wifi_config_t wifi_config;
+     bzero(&wifi_config, sizeof(wifi_config));
+-    strcpy((char *)wifi_config.sta.ssid, ap_record.ssid.c_str());
+-    strcpy((char *)wifi_config.sta.password, ap_record.password.c_str());
++    memcpy(wifi_config.sta.ssid, ap_record.ssid.data(), std::min(ap_record.ssid.size(), sizeof(wifi_config.sta.ssid)));
++    memcpy(wifi_config.sta.password, ap_record.password.data(),
++           std::min(ap_record.password.size(), sizeof(wifi_config.sta.password)));
+ 
+     if (remember_bssid_) {
+         // Explicit opt-in: pin to this exact AP (BSSID + channel) for the fastest
+@@ -362,7 +389,9 @@ void WifiStation::WifiEventHandler(void* arg, esp_event_base_t event_base, int32
+         if (this_->reconnect_count_ < MAX_RECONNECT_COUNT) {
+             esp_wifi_connect();
+             this_->reconnect_count_++;
+-            ESP_LOGI(TAG, "Reconnecting %s (attempt %d / %d)", this_->ssid_.c_str(), this_->reconnect_count_, MAX_RECONNECT_COUNT);
++            const std::string ssid = this_->GetSsid();
++            ESP_LOGI(TAG, "Reconnecting %s (attempt %d / %d)", ssid.c_str(), this_->reconnect_count_,
++                     MAX_RECONNECT_COUNT);
+             return;
+         }
+ 
+@@ -385,13 +414,18 @@ void WifiStation::IpEventHandler(void* arg, esp_event_base_t event_base, int32_t
+ 
+     char ip_address[16];
+     esp_ip4addr_ntoa(&event->ip_info.ip, ip_address, sizeof(ip_address));
+-    this_->ip_address_ = ip_address;
+-    ESP_LOGI(TAG, "Got IP: %s", this_->ip_address_.c_str());
+-    
++    std::string ssid;
++    {
++        std::lock_guard<std::mutex> lock(this_->connection_info_mutex_);
++        this_->ip_address_ = ip_address;
++        ssid               = this_->ssid_;
++    }
++    ESP_LOGI(TAG, "Got IP: %s", ip_address);
++
+     xEventGroupSetBits(this_->event_group_, WIFI_EVENT_CONNECTED);
+     this_->was_connected_ = true;  // Mark as connected for disconnect notification
+     if (this_->on_connected_) {
+-        this_->on_connected_(this_->ssid_);
++        this_->on_connected_(ssid);
+     }
+     this_->connect_queue_.clear();
+     this_->reconnect_count_ = 0;

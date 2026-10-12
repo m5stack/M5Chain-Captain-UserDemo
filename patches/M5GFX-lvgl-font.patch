@@ -1,0 +1,550 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d4b121e..f8e3ce1 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -40,6 +40,7 @@ elseif ((IDF_VERSION_MAJOR EQUAL 4) AND (IDF_VERSION_MINOR GREATER 3) OR IDF_VER
+ else()
+     set(COMPONENT_REQUIRES nvs_flash efuse)
+ endif()
++list(APPEND COMPONENT_REQUIRES lvgl)
+ 
+ ### If you use arduino-esp32 components, please activate next comment line.
+ # list(APPEND COMPONENT_REQUIRES arduino-esp32)
+@@ -48,3 +49,5 @@ endif()
+ message(STATUS "M5GFX use components = ${COMPONENT_REQUIRES}")
+ 
+ register_component()
++
++target_compile_definitions(${COMPONENT_LIB} PUBLIC M5GFX_USE_LVGL_FONT=1)
+diff --git a/src/lgfx/v1/LGFXBase.cpp b/src/lgfx/v1/LGFXBase.cpp
+index 808bc34..184d687 100644
+--- a/src/lgfx/v1/LGFXBase.cpp
++++ b/src/lgfx/v1/LGFXBase.cpp
+@@ -2119,6 +2119,56 @@ namespace lgfx
+     return (fm.width * sx) >> 16;
+   }
+ 
++#if defined(M5GFX_USE_LVGL_FONT)
++  static uint32_t read_utf8_codepoint(const char*& string)
++  {
++    uint8_t lead = (uint8_t)*string++;
++    if ((lead & 0x80U) == 0) return lead;
++
++    uint8_t continuation_count;
++    uint32_t codepoint;
++    if ((lead & 0xE0U) == 0xC0U)
++    {
++      continuation_count = 1;
++      codepoint          = lead & 0x1FU;
++    }
++    else if ((lead & 0xF0U) == 0xE0U)
++    {
++      continuation_count = 2;
++      codepoint          = lead & 0x0FU;
++    }
++    else if ((lead & 0xF8U) == 0xF0U)
++    {
++      continuation_count = 3;
++      codepoint          = lead & 0x07U;
++    }
++    else
++    {
++      return lead;
++    }
++
++    while (continuation_count--)
++    {
++      uint8_t continuation = (uint8_t)*string;
++      if ((continuation & 0xC0U) != 0x80U) return lead;
++      ++string;
++      codepoint = (codepoint << 6) | (continuation & 0x3FU);
++    }
++    return codepoint;
++  }
++
++  static uint16_t peek_next_metric_codepoint(const char* string, bool utf8)
++  {
++    while (string && *string)
++    {
++      uint32_t codepoint = utf8 ? read_utf8_codepoint(string) : (uint8_t)*string++;
++      if ((utf8 && codepoint < 0x20U) || (codepoint >= 0xFE00U && codepoint < 0xFE10U)) continue;
++      return codepoint <= 0xFFFFU ? (uint16_t)codepoint : 0;
++    }
++    return 0;
++  }
++#endif
++
+   int32_t LGFXBase::textLength(const char *string, int32_t width)
+   {
+     if (!string || !string[0]) return 0;
+@@ -2138,10 +2188,17 @@ namespace lgfx
+         if (uniCode < 0x20) break;
+       }
+       if ((uniCode >= 0xFE00) && (uniCode < 0xFE10)) continue;
++#if defined(M5GFX_USE_LVGL_FONT)
++      uint16_t nextCode = peek_next_metric_codepoint(string + 1, _text_style.utf8);
++#endif
+       bool use_emoji = false;
+       if (uniCode > 0xFFFF) {
+         use_emoji = true;
++#if defined(M5GFX_USE_LVGL_FONT)
++      } else if (!_font->updateFontMetric(&_font_metrics, uniCode, nextCode) && uniCode != 0) {
++#else
+       } else if (!_font->updateFontMetric(&_font_metrics, uniCode) && uniCode != 0) {
++#endif
+         use_emoji = true;
+       }
+       if (use_emoji) {
+@@ -2198,10 +2255,17 @@ namespace lgfx
+         if (uniCode < 0x20) break;
+       }
+       if ((uniCode >= 0xFE00) && (uniCode < 0xFE10)) continue;
++#if defined(M5GFX_USE_LVGL_FONT)
++      uint16_t nextCode = peek_next_metric_codepoint(string + 1, _text_style.utf8);
++#endif
+       bool use_emoji = false;
+       if (uniCode > 0xFFFF) {
+         use_emoji = true;
++#if defined(M5GFX_USE_LVGL_FONT)
++      } else if (!font->updateFontMetric(metrics, uniCode, nextCode) && uniCode != 0) {
++#else
+       } else if (!font->updateFontMetric(metrics, uniCode) && uniCode != 0) {
++#endif
+         use_emoji = true;
+       }
+       if (use_emoji) {
+@@ -2279,12 +2343,19 @@ namespace lgfx
+         }
+ 
+         if ((uniCode >= 0xFE00) && (uniCode < 0xFE10)) continue;
++#if defined(M5GFX_USE_LVGL_FONT)
++        uint16_t nextCode = peek_next_metric_codepoint(tmp + 1, _text_style.utf8);
++#endif
+ 
+         {
+           bool use_emoji = false;
+           if (uniCode > 0xFFFF) {
+             use_emoji = true;
++#if defined(M5GFX_USE_LVGL_FONT)
++          } else if (!font->updateFontMetric(&metrics, uniCode, nextCode) && uniCode != 0) {
++#else
+           } else if (!font->updateFontMetric(&metrics, uniCode) && uniCode != 0) {
++#endif
+             use_emoji = true;
+           }
+           if (use_emoji) {
+@@ -2352,9 +2423,16 @@ namespace lgfx
+           if (uniCode < 0x20) break;
+         }
+         if ((uniCode >= 0xFE00) && (uniCode < 0xFE10)) continue;
++#if defined(M5GFX_USE_LVGL_FONT)
++        uint16_t nextCode = peek_next_metric_codepoint(string + 1, _text_style.utf8);
++#endif
+         {
+           bool drawn = false;
++#if defined(M5GFX_USE_LVGL_FONT)
++          if (uniCode > 0xFFFF || (!font->updateFontMetric(&metrics, uniCode, nextCode) && uniCode != 0)) {
++#else
+           if (uniCode > 0xFFFF || (!font->updateFontMetric(&metrics, uniCode) && uniCode != 0)) {
++#endif
+             if (_emoji_draw_cb) {
+               int32_t ew = _emoji_draw_cb(this, x + sumX, y, uniCode, (metrics.height * sy) >> 16);
+               if (ew > 0) { sumX += ew; drawn = true; }
+diff --git a/src/lgfx/v1/LGFXBase.hpp b/src/lgfx/v1/LGFXBase.hpp
+index 8d38b08..f4c7f94 100644
+--- a/src/lgfx/v1/LGFXBase.hpp
++++ b/src/lgfx/v1/LGFXBase.hpp
+@@ -761,7 +761,14 @@ namespace lgfx
+   #endif
+ 
+            size_t drawChar(uint16_t uniCode, int32_t x, int32_t y, uint8_t font);
+-    inline size_t drawChar(uint16_t uniCode, int32_t x, int32_t y) { int32_t dummy_filled_x = 0; return _font->drawChar(this, x, y, uniCode, &_text_style, &_font_metrics, dummy_filled_x); }
++    inline size_t drawChar(uint16_t uniCode, int32_t x, int32_t y)
++    {
++#if defined(M5GFX_USE_LVGL_FONT)
++      if (_font->getType() == IFont::ft_lvgl) _font->updateFontMetric(&_font_metrics, uniCode);
++#endif
++      int32_t dummy_filled_x = 0;
++      return _font->drawChar(this, x, y, uniCode, &_text_style, &_font_metrics, dummy_filled_x);
++    }
+ 
+     template<typename T>
+     inline size_t drawChar(int32_t x, int32_t y, uint16_t uniCode, T color, T bg, float size) { return drawChar(x, y, uniCode, color, bg, size, size); }
+@@ -773,6 +780,9 @@ namespace lgfx
+       style.fore_rgb888 = convert_to_rgb888(bg);
+       style.size_x = size_x;
+       style.size_y = size_y;
++#if defined(M5GFX_USE_LVGL_FONT)
++      if (_font->getType() == IFont::ft_lvgl) _font->updateFontMetric(&_font_metrics, uniCode);
++#endif
+       int32_t dummy_filled_x = 0;
+       return _font->drawChar(this, x, y, uniCode, &style, &_font_metrics, dummy_filled_x);
+       //return (fpDrawChar)(this, x, y, uniCode, &style, _font);
+diff --git a/src/lgfx/v1/lgfx_fonts.cpp b/src/lgfx/v1/lgfx_fonts.cpp
+index 333b3a2..02f4ed1 100644
+--- a/src/lgfx/v1/lgfx_fonts.cpp
++++ b/src/lgfx/v1/lgfx_fonts.cpp
+@@ -740,7 +740,11 @@ label_nextbyte: /// 次のデータを取得する;
+       uint32_t box_h,
+       const uint8_t* bitmap,
+       uint32_t glyph_stride,
+-      uint32_t alpha_max)
++      uint32_t alpha_max
++#if defined(M5GFX_USE_LVGL_FONT)
++      , uint8_t packed_bpp = 0
++#endif
++      )
+   {
+     int32_t sy = 65536 * style->size_y;
+     int32_t sx = 65536 * style->size_x;
+@@ -814,7 +818,39 @@ label_nextbyte: /// 次のデータを取得する;
+ 
+         for (uint32_t px = 0; px < box_w; ++px)
+         {
++#if defined(M5GFX_USE_LVGL_FONT)
++          uint32_t alpha;
++          if (packed_bpp)
++          {
++            const uint8_t* packed_data = bitmap;
++            uint32_t packed_size;
++            uint32_t bit_offset;
++            if (glyph_stride)
++            {
++              packed_data += py * glyph_stride;
++              packed_size = glyph_stride;
++              bit_offset  = px * packed_bpp;
++            }
++            else
++            {
++              packed_size = (box_w * box_h * packed_bpp + 7) >> 3;
++              bit_offset  = (py * box_w + px) * packed_bpp;
++            }
++            uint32_t byte_offset = bit_offset >> 3;
++            uint32_t packed      = (uint32_t)packed_data[byte_offset] << 8;
++            if (byte_offset + 1 < packed_size)
++            {
++              packed |= packed_data[byte_offset + 1];
++            }
++            alpha = (packed >> (16 - (bit_offset & 7) - packed_bpp)) & alpha_max;
++          }
++          else
++          {
++            alpha = bitmap[py * glyph_stride + px];
++          }
++#else
+           uint32_t alpha = bitmap[py * glyph_stride + px];
++#endif
+ 
+           if (!fillbg && alpha == 0)
+           {
+@@ -856,6 +892,232 @@ label_nextbyte: /// 次のデータを取得する;
+ 
+ //----------------------------------------------------------------------------
+ 
++#if defined(M5GFX_USE_LVGL_FONT)
++  static size_t draw_lvgl_alpha_bitmap_destination(LGFXBase* gfx, int32_t x, int32_t y, const TextStyle* style,
++                                                   int32_t xAdvance, int32_t xoffset, int32_t yoffset, uint32_t box_w,
++                                                   uint32_t box_h, const uint8_t* bitmap, uint32_t glyph_stride,
++                                                   uint8_t packed_bpp)
++  {
++      int32_t sy          = 65536 * style->size_y;
++      int32_t sx          = 65536 * style->size_x;
++      int32_t glyph_width = (box_w * sx) >> 16;
++      uint32_t alpha_max  = (1U << packed_bpp) - 1;
++
++      auto get_alpha = [&](uint32_t px, uint32_t py) -> uint32_t {
++          const uint8_t* packed_data = bitmap;
++          uint32_t packed_size;
++          uint32_t bit_offset;
++          if (glyph_stride) {
++              packed_data += py * glyph_stride;
++              packed_size = glyph_stride;
++              bit_offset  = px * packed_bpp;
++          } else {
++              packed_size = (box_w * box_h * packed_bpp + 7) >> 3;
++              bit_offset  = (py * box_w + px) * packed_bpp;
++          }
++          uint32_t byte_offset = bit_offset >> 3;
++          uint32_t packed      = (uint32_t)packed_data[byte_offset] << 8;
++          if (byte_offset + 1 < packed_size) {
++              packed |= packed_data[byte_offset + 1];
++          }
++          return (packed >> (16 - (bit_offset & 7) - packed_bpp)) & alpha_max;
++      };
++
++      int32_t clip_left;
++      int32_t clip_top;
++      int32_t clip_width;
++      int32_t clip_height;
++      gfx->getClipRect(&clip_left, &clip_top, &clip_width, &clip_height);
++      int32_t clip_right  = clip_left + clip_width;
++      int32_t clip_bottom = clip_top + clip_height;
++      int32_t row_height  = (sy + 65535) >> 16;
++      int32_t fore_r      = (style->fore_rgb888 >> 16) & 0xFF;
++      int32_t fore_g      = (style->fore_rgb888 >> 8) & 0xFF;
++      int32_t fore_b      = style->fore_rgb888 & 0xFF;
++
++      gfx->startWrite();
++      if (bitmap != nullptr && glyph_width > 0 && row_height > 0 && clip_width > 0 && clip_height > 0) {
++          x += xoffset;
++          auto buffer = (bgr888_t*)alloca(glyph_width * row_height * sizeof(bgr888_t));
++          pixelcopy_t pixel_copy(buffer, gfx->getColorConverter()->depth, rgb888_3Byte, false);
++
++          for (uint32_t py = 0; py < box_h; ++py) {
++              int32_t y0 = y + (((yoffset + (int32_t)py) * sy) >> 16);
++              int32_t y1 = y + (((yoffset + (int32_t)py + 1) * sy) >> 16);
++              int32_t by = std::max(y0, clip_top);
++              int32_t bh = std::min(y1, clip_bottom) - by;
++              if (bh <= 0) continue;
++
++              uint32_t first = 0;
++              while (first < box_w && get_alpha(first, py) == 0) ++first;
++              if (first == box_w) continue;
++
++              uint32_t last = box_w;
++              while (last > first && get_alpha(last - 1, py) == 0) --last;
++
++              int32_t rx = x + (((int32_t)first * sx) >> 16);
++              int32_t rw = x + (((int32_t)last * sx) >> 16);
++              rx         = std::max(rx, clip_left);
++              rw         = std::min(rw, clip_right) - rx;
++              if (rw <= 0) continue;
++
++              gfx->readRectRGB(rx, by, rw, bh, (uint8_t*)buffer);
++
++              for (uint32_t px = first; px < last; ++px) {
++                  uint32_t alpha = get_alpha(px, py);
++                  if (alpha == 0) continue;
++
++                  int32_t x0 = x + (((int32_t)px * sx) >> 16) - rx;
++                  int32_t x1 = x + ((((int32_t)px + 1) * sx) >> 16) - rx;
++                  x0         = std::max<int32_t>(x0, 0);
++                  x1         = std::min(x1, rw);
++                  if (x1 <= x0) continue;
++
++                  int32_t blend = ((int32_t)alpha * 256 + (int32_t)(alpha_max >> 1)) / (int32_t)alpha_max;
++                  for (int32_t yy = 0; yy < bh; ++yy) {
++                      for (int32_t xx = x0; xx < x1; ++xx) {
++                          auto& pixel = buffer[yy * rw + xx];
++                          pixel.r     = (fore_r * blend + pixel.r * (256 - blend) + 128) >> 8;
++                          pixel.g     = (fore_g * blend + pixel.g * (256 - blend) + 128) >> 8;
++                          pixel.b     = (fore_b * blend + pixel.b * (256 - blend) + 128) >> 8;
++                      }
++                  }
++              }
++
++              gfx->pushImage(rx, by, rw, bh, &pixel_copy);
++          }
++      }
++      gfx->endWrite();
++      return xAdvance;
++  }
++
++  void LVGLFont::getDefaultMetric(FontMetrics* metrics) const
++  {
++    if (_font == nullptr)
++    {
++      metrics->width     = 0;
++      metrics->x_advance = 0;
++      metrics->x_offset  = 0;
++      metrics->height    = 0;
++      metrics->y_advance = 0;
++      metrics->y_offset  = 0;
++      metrics->baseline  = 0;
++      return;
++    }
++
++    metrics->height    = lv_font_get_line_height(_font);
++    metrics->y_advance = metrics->height;
++    metrics->baseline  = metrics->height - _font->base_line;
++    metrics->y_offset  = -metrics->baseline;
++    metrics->width     = (metrics->height * 5) >> 3;
++    metrics->x_advance = metrics->width;
++    metrics->x_offset  = 0;
++  }
++
++  bool LVGLFont::updateFontMetric(FontMetrics* metrics, uint16_t uniCode) const
++  {
++    return updateFontMetric(metrics, uniCode, 0);
++  }
++
++  bool LVGLFont::updateFontMetric(FontMetrics* metrics, uint16_t uniCode, uint16_t nextCode) const
++  {
++    if (_font == nullptr)
++    {
++      metrics->x_offset  = 0;
++      metrics->width     = 0;
++      metrics->x_advance = 0;
++      return false;
++    }
++
++    lv_font_glyph_dsc_t glyph{};
++    bool found = lv_font_get_glyph_dsc(_font, &glyph, uniCode, nextCode);
++    if (!found)
++    {
++      metrics->x_offset  = 0;
++      metrics->width     = 0;
++      metrics->x_advance = (metrics->height * 5) >> 3;
++      return false;
++    }
++
++    metrics->x_offset  = glyph.ofs_x;
++    metrics->width     = glyph.box_w;
++    metrics->x_advance = glyph.adv_w;
++    lv_font_glyph_release_draw_data(&glyph);
++    return true;
++  }
++
++  size_t LVGLFont::drawChar(LGFXBase* gfx, int32_t x, int32_t y, uint16_t uniCode, const TextStyle* style,
++                            FontMetrics* metrics, int32_t& filled_x) const
++  {
++    if (_font == nullptr)
++    {
++      return drawCharDummy(gfx, x, y, metrics->x_advance, metrics->height, style, filled_x);
++    }
++
++    int32_t sy = 65536 * style->size_y;
++    int32_t sx = 65536 * style->size_x;
++    y += (metrics->y_offset * sy) >> 16;
++
++    lv_font_glyph_dsc_t glyph{};
++    if (!lv_font_get_glyph_dsc(_font, &glyph, uniCode, 0))
++    {
++      return drawCharDummy(gfx, x, y, metrics->x_advance, metrics->height, style, filled_x);
++    }
++
++    uint8_t bits_per_pixel;
++    switch (glyph.format)
++    {
++    case LV_FONT_GLYPH_FORMAT_A1:
++      bits_per_pixel = 1;
++      break;
++    case LV_FONT_GLYPH_FORMAT_A2:
++      bits_per_pixel = 2;
++      break;
++    case LV_FONT_GLYPH_FORMAT_A3:
++      bits_per_pixel = 3;
++      break;
++    case LV_FONT_GLYPH_FORMAT_A4:
++      bits_per_pixel = 4;
++      break;
++    case LV_FONT_GLYPH_FORMAT_A8:
++      bits_per_pixel = 8;
++      break;
++    default:
++      lv_font_glyph_release_draw_data(&glyph);
++      return drawCharDummy(gfx, x, y, metrics->x_advance, metrics->height, style, filled_x);
++    }
++
++    const uint8_t* bitmap = nullptr;
++    if (glyph.box_w && glyph.box_h)
++    {
++      bitmap = static_cast<const uint8_t*>(lv_font_get_glyph_static_bitmap(&glyph));
++      if (bitmap == nullptr)
++      {
++        lv_font_glyph_release_draw_data(&glyph);
++        return drawCharDummy(gfx, x, y, metrics->x_advance, metrics->height, style, filled_x);
++      }
++    }
++
++    int32_t xAdvance      = (metrics->x_advance * sx) >> 16;
++    int32_t xoffset       = (glyph.ofs_x * sx) >> 16;
++    int32_t yoffset       = metrics->baseline - (glyph.ofs_y + glyph.box_h);
++    uint32_t glyph_stride = glyph.stride;
++
++    bool use_destination = _blend == lvgl_font_blend_t::destination && style->back_rgb888 == style->fore_rgb888 &&
++                           gfx->isReadable() && !gfx->hasPalette();
++    size_t drawn =
++        use_destination
++            ? draw_lvgl_alpha_bitmap_destination(gfx, x, y, style, xAdvance, xoffset, yoffset, glyph.box_w, glyph.box_h,
++                                                 bitmap, glyph_stride, bits_per_pixel)
++            : draw_alpha_bitmap_common(gfx, x, y, style, metrics, filled_x, xAdvance, xoffset, yoffset, glyph.box_w,
++                                       glyph.box_h, bitmap, glyph_stride, (1U << bits_per_pixel) - 1, bits_per_pixel);
++    lv_font_glyph_release_draw_data(&glyph);
++    return drawn;
++  }
++#endif
++
++  //----------------------------------------------------------------------------
++
+   namespace
+   {
+     static inline uint16_t read_u16le(const uint8_t* p)
+@@ -2339,4 +2601,3 @@ label_nextbyte: /// 次のデータを取得する;
+   }
+  }
+ }
+-
+diff --git a/src/lgfx/v1/lgfx_fonts.hpp b/src/lgfx/v1/lgfx_fonts.hpp
+index d9b4e79..b771c32 100644
+--- a/src/lgfx/v1/lgfx_fonts.hpp
++++ b/src/lgfx/v1/lgfx_fonts.hpp
+@@ -6,6 +6,10 @@
+ #include "misc/enum.hpp"
+ #include "../utility/pgmspace.h"
+ 
++#if defined(M5GFX_USE_LVGL_FONT)
++#include <lvgl.h>
++#endif
++
+ namespace lgfx
+ {
+  inline namespace v1
+@@ -36,6 +40,13 @@ namespace lgfx
+     virtual bool updateFontMetric(FontMetrics *metrics, uint16_t uniCode) const = 0;
+     virtual bool unloadFont(void) { return false; }
+     virtual size_t drawChar(LGFXBase* gfx, int32_t x, int32_t y, uint16_t c, const TextStyle* style, FontMetrics* metrics, int32_t& filled_x) const = 0;
++#if defined(M5GFX_USE_LVGL_FONT)
++    virtual bool updateFontMetric(FontMetrics* metrics, uint16_t uniCode, uint16_t nextCode) const
++    {
++      (void)nextCode;
++      return updateFontMetric(metrics, uniCode);
++    }
++#endif
+ 
+   protected:
+     size_t drawCharDummy(LGFXBase* gfx, int32_t x, int32_t y, int32_t w, int32_t h, const TextStyle* style, int32_t& filled_x) const;
+@@ -118,6 +129,43 @@ namespace lgfx
+     size_t drawChar(LGFXBase* gfx, int32_t x, int32_t y, uint16_t c, const TextStyle* style, FontMetrics* metrics, int32_t& filled_x) const override;
+   };
+ 
++#if defined(M5GFX_USE_LVGL_FONT)
++  //----------------------------------------------------------------------------
++  // Adapter for LVGL 9 static bitmap fonts.
++
++  enum class lvgl_font_blend_t : uint8_t {
++      base_color,
++      destination,
++  };
++
++  struct LVGLFont : public IFont {
++      constexpr explicit LVGLFont(const ::lv_font_t* font = nullptr,
++                                  lvgl_font_blend_t blend = lvgl_font_blend_t::base_color)
++          : _font(font), _blend(blend)
++      {
++      }
++
++      font_type_t getType(void) const override
++      {
++          return ft_lvgl;
++      }
++      void getDefaultMetric(FontMetrics* metrics) const override;
++      bool updateFontMetric(FontMetrics* metrics, uint16_t uniCode) const override;
++      bool updateFontMetric(FontMetrics* metrics, uint16_t uniCode, uint16_t nextCode) const override;
++      size_t drawChar(LGFXBase* gfx, int32_t x, int32_t y, uint16_t c, const TextStyle* style, FontMetrics* metrics,
++                      int32_t& filled_x) const override;
++
++      constexpr const ::lv_font_t* getFont(void) const
++      {
++          return _font;
++      }
++
++  private:
++      const ::lv_font_t* _font;
++      lvgl_font_blend_t _blend;
++  };
++#endif
++
+   // deprecated array.
+   extern const IFont* fontdata [];
+ 

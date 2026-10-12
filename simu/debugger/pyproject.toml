@@ -1,0 +1,13 @@
+[project]
+name = "chain-captain-debugger"
+version = "0.1.0"
+description = "Web debugger bridge for the Chain Captain simulator"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "pyzmq>=26,<28",
+    "uvicorn>=0.34,<1",
+]
+
+[tool.uv]
+package = false

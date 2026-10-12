@@ -1,0 +1,39 @@
+[
+    {
+        "url": "https://github.com/Forairaaaaa/mooncake.git",
+        "path": "components/mooncake",
+        "ref": "v2.3.3"
+    },
+    {
+        "url": "https://github.com/Forairaaaaa/mooncake_log.git",
+        "path": "components/mooncake_log",
+        "ref": "v1.5.0"
+    },
+    {
+        "url": "https://github.com/Forairaaaaa/smooth_ui_toolkit.git",
+        "path": "components/smooth_ui_toolkit",
+        "ref": "v2.14.0"
+    },
+    {
+        "url": "https://github.com/m5stack/M5GFX.git",
+        "path": "components/M5GFX",
+        "ref": "0.2.28",
+        "patch": "patches/M5GFX-lvgl-font.patch"
+    },
+    {
+        "url": "https://github.com/bblanchon/ArduinoJson.git",
+        "path": "components/ArduinoJson",
+        "ref": "v7.4.3"
+    },
+    {
+        "url": "https://github.com/lvgl/lvgl.git",
+        "path": "components/lvgl",
+        "ref": "v9.5.0"
+    },
+    {
+        "url": "https://github.com/78/esp-wifi-connect.git",
+        "path": "components/esp-wifi-connect",
+        "ref": "c24b97c194e6b4a1d7be0237b3c28980661cac1e",
+        "patch": "patches/esp-wifi-connect-thread-safety.patch"
+    }
+]
