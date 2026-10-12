@@ -17,8 +17,7 @@ const std::vector<Registration>& registry()
 {
     static const std::vector<Registration> registrations = {
         {"off", "Off", nullptr},
-        {"rps", "RPS",
-         []() -> std::unique_ptr<Screensaver> { return std::make_unique<RpsScreensaver>(); }},
+        {"rps", "RPS", []() -> std::unique_ptr<Screensaver> { return std::make_unique<RpsScreensaver>(); }},
         {"starry-night", "Starry Night",
          []() -> std::unique_ptr<Screensaver> { return std::make_unique<StarryNightScreensaver>(); }},
         {"cat", "Cat Autumn", []() -> std::unique_ptr<Screensaver> { return std::make_unique<CatScreensaver>(); }},
@@ -31,10 +30,9 @@ const std::vector<Registration>& registry()
         {"cat-random", "Cat Random",
          []() -> std::unique_ptr<Screensaver> {
              // The factory runs on every activation, so each visit rolls a fresh season.
-             static constexpr std::array<CatGarden::Season, 4> Seasons = {CatGarden::Season::Autumn,
-                                                                          CatGarden::Season::Spring,
-                                                                          CatGarden::Season::Summer,
-                                                                          CatGarden::Season::Winter};
+             static constexpr std::array<CatGarden::Season, 4> Seasons = {
+                 CatGarden::Season::Autumn, CatGarden::Season::Spring, CatGarden::Season::Summer,
+                 CatGarden::Season::Winter};
              return std::make_unique<CatScreensaver>(Seasons[smooth_ui_toolkit::Random::getInstance().getInt(0, 3)]);
          }},
     };

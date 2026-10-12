@@ -52,22 +52,22 @@ void RpsScreensaver::startRound()
         const auto slot  = i % 4;
         // Four matching icons form a loose 2x2 cluster. Jitter remains
         // smaller than the gap so no battle starts from an initial overlap.
-        unit.x = (_max_x + Size) * centers[group][0] - Size / 2 + (slot % 2 ? 12.0F : -12.0F) +
-                 random.getFloat(-2.0F, 2.0F);
+        unit.x =
+            (_max_x + Size) * centers[group][0] - Size / 2 + (slot % 2 ? 12.0F : -12.0F) + random.getFloat(-2.0F, 2.0F);
         unit.y =
             (_max_y + Size) * centers[group][1] - Size / 2 + (slot / 2 ? 12.0F : -12.0F) + random.getFloat(-2.0F, 2.0F);
         // Launch every unit into a shared tangential orbit around the screen
         // centre so the three kinds sweep into a balanced spiral chase. A
         // little jitter keeps the vortex from moving in perfect lockstep.
-        const float dx     = unit.x - center_x, dy = unit.y - center_y;
+        const float dx = unit.x - center_x, dy = unit.y - center_y;
         const float length = std::hypot(dx, dy);
         const float jitter = random.getFloat(-0.2F, 0.2F);
-        const float cos_a  = std::cos(jitter), sin_a = std::sin(jitter);
-        const float tx     = turn * -dy / length;
-        const float ty     = turn * dx / length;
-        unit.vx            = Speed * (tx * cos_a - ty * sin_a);
-        unit.vy            = Speed * (tx * sin_a + ty * cos_a);
-        unit.kind          = groups[group];
+        const float cos_a = std::cos(jitter), sin_a = std::sin(jitter);
+        const float tx  = turn * -dy / length;
+        const float ty  = turn * dx / length;
+        unit.vx         = Speed * (tx * cos_a - ty * sin_a);
+        unit.vy         = Speed * (tx * sin_a + ty * cos_a);
+        unit.kind       = groups[group];
         unit.protection = unit.flash = 0;
     }
 }

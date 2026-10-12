@@ -280,14 +280,14 @@ void CatGarden::init(std::uint32_t now)
 
 void CatGarden::resetDust(Dust& dust, bool stagger)
 {
-    auto& random       = smooth_ui_toolkit::Random::getInstance();
-    const bool snow    = _season == Season::Winter;
-    dust.x             = random.getFloat(8.0F, 224.0F);
-    dust.y             = snow ? random.getFloat(0.0F, 130.0F) : random.getFloat(45.0F, 235.0F);
-    dust.life          = snow ? random.getFloat(7.0F, 12.0F) : random.getFloat(9.0F, 16.0F);
-    dust.age           = stagger ? random.getFloat(0.0F, dust.life) : 0.0F;
-    dust.speed         = snow ? random.getFloat(7.0F, 14.0F) : random.getFloat(2.0F, 4.0F);
-    dust.phase         = random.getFloat(0.0F, 6.2831853F);
+    auto& random    = smooth_ui_toolkit::Random::getInstance();
+    const bool snow = _season == Season::Winter;
+    dust.x          = random.getFloat(8.0F, 224.0F);
+    dust.y          = snow ? random.getFloat(0.0F, 130.0F) : random.getFloat(45.0F, 235.0F);
+    dust.life       = snow ? random.getFloat(7.0F, 12.0F) : random.getFloat(9.0F, 16.0F);
+    dust.age        = stagger ? random.getFloat(0.0F, dust.life) : 0.0F;
+    dust.speed      = snow ? random.getFloat(7.0F, 14.0F) : random.getFloat(2.0F, 4.0F);
+    dust.phase      = random.getFloat(0.0F, 6.2831853F);
 }
 
 bool CatGarden::update(std::uint32_t now)

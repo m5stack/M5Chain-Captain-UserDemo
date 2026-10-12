@@ -105,8 +105,8 @@ void SwitchItem::draw(lgfx::LGFX_Sprite& canvas, const ItemVisualState& state) c
 
     if (label_width > 0) {
         if (_resolved_label_width != label_width) {
-            const auto resolved = resolveLabel(canvas, label(), label_width,
-                                               {{20, &LabelFont20}, {16, &LabelFont16}, {14, &LabelFont14}});
+            const auto resolved   = resolveLabel(canvas, label(), label_width,
+                                                 {{20, &LabelFont20}, {16, &LabelFont16}, {14, &LabelFont14}});
             _label_font_size      = resolved.fontSize;
             _label_line_count     = resolved.lineCount;
             _label_lines          = resolved.lines;
